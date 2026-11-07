@@ -201,7 +201,7 @@ jobs:
         uses: tailscale/github-action@v4
         with:
           authkey: ${{ secrets.TS_AUTHKEY }}
-          args: --hostname=gh-travelling-site-${{ github.run_id }}
+          hostname: gh-travelling-site-${{ github.run_id }}
 
       - name: Deploy stack to Portainer via API
         if: github.ref == 'refs/heads/main'

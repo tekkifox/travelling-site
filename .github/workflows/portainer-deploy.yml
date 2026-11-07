@@ -10,9 +10,9 @@ permissions:
   packages: write
 
 jobs:
-  # amd64 image, built natively on the fleet's self-hosted x86 runner.
+  # amd64 image, built natively on the GitHub-hosted x86 runner.
   build:
-    runs-on: [self-hosted, paseo]
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -82,8 +82,8 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  # arm64 image, built natively on the GitHub-hosted ARM runner. No QEMU, and
-  # the fleet's self-hosted runner is x86_64, so this job stays GitHub-hosted.
+  # arm64 image, built natively on the GitHub-hosted ARM runner. No QEMU is
+  # needed because the runner's architecture matches the image.
   build-arm64:
     runs-on: ubuntu-26.04-arm
     steps:
@@ -155,11 +155,11 @@ jobs:
 
   # Publish the multi-arch manifest from both digests, then trigger the deploy.
   # This is the only place the Portainer webhook fires, and it runs only after
-  # the manifest has been pushed. It runs on the self-hosted runner so it can
-  # reach the storage hub through its TLS front door (PORTAINER_URL, e.g.
-  # https://portainer.example.com).
+  # the manifest has been pushed. It runs on a GitHub-hosted runner and joins
+  # the tailnet so it can reach the storage hub through its TLS front door
+  # (PORTAINER_URL, e.g. https://portainer.example.com).
   merge:
-    runs-on: [self-hosted, paseo]
+    runs-on: ubuntu-latest
     needs: [build, build-arm64]
     steps:
       - name: Download amd64 digest
@@ -197,6 +197,12 @@ jobs:
       - name: Checkout for deploy compose
         uses: actions/checkout@v7
 
+      - name: Join the tailnet
+        uses: tailscale/github-action@v3
+        with:
+          authkey: ${{ secrets.TS_AUTHKEY }}
+          args: --hostname=gh-travelling-site-${{ github.run_id }}
+
       - name: Deploy stack to Portainer via API
         if: github.ref == 'refs/heads/main'
         env:
@@ -223,7 +229,7 @@ jobs:
           # 1. Resolve the stack by name. Stack ids and endpoint ids are facts
           #    Portainer already knows; pinning them here is what let the deploy
           #    rot when the stack was recreated and moved to another environment.
-          stacks_status=$(curl -sS -o "$tmpdir/stacks.json" -w "%{http_code}" \
+          stacks_status=$(curl -k -sS -o "$tmpdir/stacks.json" -w "%{http_code}" \
             -H "X-API-Key: ${PORTAINER_API_KEY}" \
             "${PORTAINER_URL}/api/stacks")
           if [ "$stacks_status" -lt 200 ] || [ "$stacks_status" -ge 300 ]; then
@@ -260,7 +266,7 @@ jobs:
           # 2. Read the current stack Env array. Sending an empty Env wipes the
           #    variables the running container needs, so this read is mandatory.
           get_request="GET /api/stacks/${stack_id}"
-          get_status=$(curl -sS -o "$tmpdir/get.json" -w "%{http_code}" \
+          get_status=$(curl -k -sS -o "$tmpdir/get.json" -w "%{http_code}" \
             -H "X-API-Key: ${PORTAINER_API_KEY}" \
             "${PORTAINER_URL}/api/stacks/${stack_id}")
           if [ "$get_status" -lt 200 ] || [ "$get_status" -ge 300 ]; then
@@ -278,7 +284,7 @@ jobs:
             > "$tmpdir/body.json"
 
           put_request="PUT /api/stacks/${stack_id}?endpointId=${endpoint_id}"
-          put_status=$(curl -sS -o "$tmpdir/put.json" -w "%{http_code}" \
+          put_status=$(curl -k -sS -o "$tmpdir/put.json" -w "%{http_code}" \
             -X PUT \
             -H "X-API-Key: ${PORTAINER_API_KEY}" \
             -H "Content-Type: application/json" \

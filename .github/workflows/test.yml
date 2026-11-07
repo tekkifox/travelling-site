@@ -15,7 +15,7 @@ concurrency:
 jobs:
   frontend:
     name: Frontend unit tests
-    runs-on: [self-hosted, paseo]
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -25,9 +25,8 @@ jobs:
         with:
           node-version: '26.13.0'
 
-      # Node 26 no longer bundles corepack, and a self-hosted runner has no
-      # pre-installed pnpm, so install corepack before enabling the pnpm shim.
-      # Pinned to the same version portainer-deploy.yml uses.
+      # Node 26 no longer bundles corepack, so install it before enabling the
+      # pnpm shim. Pinned to the same version portainer-deploy.yml uses.
       - name: Install corepack
         run: npm i -g corepack@0.36.0
 
@@ -42,7 +41,7 @@ jobs:
 
   go:
     name: Go tests
-    runs-on: [self-hosted, paseo]
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -56,9 +55,8 @@ jobs:
       - name: Run go test
         run: go test ./...
 
-  # Stays on GitHub-hosted: `playwright install --with-deps` apt-installs
-  # Chromium's system libraries, which needs root. The fleet runner's tool set
-  # (git, curl, jq, docker, node) does not include passwordless sudo.
+  # `playwright install --with-deps` apt-installs Chromium's system libraries,
+  # which needs root; the GitHub-hosted runner provides passwordless sudo.
   e2e:
     name: Browser smoke test
     runs-on: ubuntu-latest

@@ -23,7 +23,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: '26.13.0'
+          node-version: '26.13.1'
 
       # Node 26 no longer bundles corepack, so install it before enabling the
       # pnpm shim. Pinned to the same version portainer-deploy.yml uses.
@@ -67,7 +67,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: '26.13.0'
+          node-version: '26.13.1'
 
       - name: Set up Go
         uses: actions/setup-go@v7

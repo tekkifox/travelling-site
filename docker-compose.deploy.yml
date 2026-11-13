@@ -4,7 +4,11 @@ services:
     container_name: travelling
     hostname: travelling
     ports:
-      - "100.96.175.0:8080:8080"
+      # Do not pin a host address here. Tailnet addresses change, and nginx on
+      # rossmoney reaches this site by tailnet name (photos.tail81cbd2.ts.net:8080),
+      # so a pinned address that is no longer assigned leaves the container unable
+      # to start: "cannot assign requested address".
+      - "8080:8080"
     networks:
       proxy:
         aliases:

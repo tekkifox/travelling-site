@@ -88,6 +88,6 @@ If you want these changes committed and pushed to a branch, run the usual `git a
 
 The OpenAPI UI is available at `/swagger/`.
 
-Portainer deployment
+Deployment
 
-The `portainer-deploy.yml` workflow deploys to Portainer through the Portainer API after publishing a new GHCR image. `docker-compose.deploy.yml` is the compose Portainer runs (pulls `ghcr.io/tekkifox/image-mosaic:latest`, container `travelling`, on the proxy network, configured via `env_file: stack.env`); `docker-compose.yml` is for local development only (it builds from the local Dockerfile and exposes port 8080).
+The `deploy.yml` workflow publishes the multi-arch GHCR image, then asks over SSH the fleet's deploy seat on `mgmt` to pull and recreate `photos-travelling-site` on `photos`. The seat deploys the stack's Ansible-managed files, which live with the fleet, not in this repository; `docker-compose.yml` is for local development only (it builds from the local Dockerfile and exposes port 8080). Deploys need the `DEPLOY_SSH_KEY` and `DEPLOY_SEAT_HOST` repository secrets.

@@ -26,7 +26,7 @@ jobs:
           node-version: '26.13.1'
 
       # Node 26 no longer bundles corepack, so install it before enabling the
-      # pnpm shim. Pinned to the same version portainer-deploy.yml uses.
+      # pnpm shim. Pinned to the same version deploy.yml uses.
       - name: Install corepack
         run: npm i -g corepack@0.36.0
 

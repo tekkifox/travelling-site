@@ -90,4 +90,4 @@ The OpenAPI UI is available at `/swagger/`.
 
 Deployment
 
-The `deploy.yml` workflow publishes the multi-arch GHCR image, then asks over SSH the fleet's deploy seat on `mgmt` to pull and recreate `photos-travelling-site` on `photos`. The seat deploys the stack's Ansible-managed files, which live with the fleet, not in this repository; `docker-compose.yml` is for local development only (it builds from the local Dockerfile and exposes port 8080). Deploys need the `DEPLOY_SSH_KEY` and `DEPLOY_SEAT_HOST` repository secrets.
+The `deploy.yml` workflow publishes the arm64 GHCR image on GitHub's hosted ARM runner (its only consumer, `photos`, is an ARM host), then asks over SSH the fleet's deploy seat on `mgmt` to pull and recreate `photos-travelling-site` on `photos`. The seat deploys the stack's Ansible-managed files, which live with the fleet, not in this repository; `docker-compose.yml` is for local development only (it builds from the local Dockerfile and exposes port 8080). Deploys need the `DEPLOY_SSH_KEY` and `DEPLOY_SEAT_HOST` repository secrets.

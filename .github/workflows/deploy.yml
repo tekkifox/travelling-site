@@ -90,31 +90,34 @@ jobs:
   # transport is duplicated here. The seat validates the host and stack itself;
   # this job only delivers the request. The seat address is a secret so no real
   # hostname is published. It runs after the push, so the deploy always pulls
-  # the image this run just built.
+  # the image this run just built. The self-hosted runner is already on the
+  # tailnet and has the deploy key preinstalled.
   deploy:
     name: Deploy travelling-site
     needs: [build]
     if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted]
+    timeout-minutes: 30
     steps:
-      - name: Join the tailnet
-        uses: tailscale/github-action@v4
-        with:
-          authkey: ${{ secrets.TS_AUTHKEY }}
-          hostname: gh-travelling-site-${{ github.run_id }}
+      - name: Verify the deploy key
+        run: |
+          set -euo pipefail
+          if [[ ! -f "$HOME/.ssh/deploy" ]]; then
+            echo "::error::$HOME/.ssh/deploy is missing; the self-hosted runner must have the deploy key preinstalled"
+            exit 1
+          fi
+          chmod 0600 "$HOME/.ssh/deploy"
 
       - name: Ask the fleet deploy seat to deploy
         env:
-          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
           DEPLOY_SEAT_HOST: ${{ secrets.DEPLOY_SEAT_HOST }}
           TARGET_HOST: photos
           TARGET_STACKS: photos-travelling-site
         run: |
           set -euo pipefail
-          install -d -m 0700 "$HOME/.ssh"
-          printf '%s\n' "$DEPLOY_SSH_KEY" > "$HOME/.ssh/deploy"
-          chmod 0600 "$HOME/.ssh/deploy"
           ssh -i "$HOME/.ssh/deploy" -p 32 \
-            -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=accept-new \
+            -o ConnectTimeout=30 \
             root@"$DEPLOY_SEAT_HOST" \
             "fleet-deploy $TARGET_HOST $TARGET_STACKS deploy"

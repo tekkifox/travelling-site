@@ -83,41 +83,48 @@ jobs:
           cache-from: type=gha,scope=arm64
           cache-to: type=gha,mode=max,scope=arm64
 
-  # Ask the fleet's deploy seat on mgmt to pull and recreate the stack from its
-  # Ansible-managed files. This repository is public and the shared
+  # Ask the deploy gateway on the tailnet to pull and recreate the stack from
+  # its Ansible-managed files. This repository is public and the shared
   # deploy-stack.yml workflow lives in the private infrastructure-as-code
   # repository, which GitHub will not let a public repository call, so the
-  # transport is duplicated here. The seat validates the host and stack itself;
-  # this job only delivers the request. The seat address is a secret so no real
-  # hostname is published. It runs after the push, so the deploy always pulls
-  # the image this run just built. The self-hosted runner is already on the
-  # tailnet and has the deploy key preinstalled.
+  # transport is duplicated here. The gateway validates the host and stack
+  # itself; this job only delivers the request. It runs after the push, so the
+  # deploy always pulls the image this run just built. The runner is
+  # GitHub-hosted and ephemeral, so it joins the tailnet for the run, uses this
+  # repository's gateway key, and pins the gateway host key instead of trusting
+  # a first-use key.
   deploy:
     name: Deploy travelling-site
     needs: [build]
     if: github.ref == 'refs/heads/main'
-    runs-on: [self-hosted]
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - name: Verify the deploy key
-        run: |
-          set -euo pipefail
-          if [[ ! -f "$HOME/.ssh/deploy" ]]; then
-            echo "::error::$HOME/.ssh/deploy is missing; the self-hosted runner must have the deploy key preinstalled"
-            exit 1
-          fi
-          chmod 0600 "$HOME/.ssh/deploy"
+      - name: Join the tailnet
+        uses: tailscale/github-action@v4
+        with:
+          authkey: ${{ secrets.TS_AUTHKEY }}
+          hostname: gh-travelling-site-${{ github.run_id }}
 
-      - name: Ask the fleet deploy seat to deploy
+      - name: Install the gateway key and its pinned host key
         env:
-          DEPLOY_SEAT_HOST: ${{ secrets.DEPLOY_SEAT_HOST }}
-          TARGET_HOST: photos
-          TARGET_STACKS: photos-travelling-site
+          GATEWAY_KEY: ${{ secrets.DEPLOY_GATEWAY_SSH_KEY }}
+          GATEWAY_HOST_KEY: ${{ secrets.DEPLOY_GATEWAY_KNOWN_HOSTS }}
         run: |
           set -euo pipefail
-          ssh -i "$HOME/.ssh/deploy" -p 32 \
-            -o BatchMode=yes \
-            -o StrictHostKeyChecking=accept-new \
+          install -d -m 0700 "$HOME/.ssh"
+          printf '%s\n' "$GATEWAY_KEY" > "$HOME/.ssh/gateway"
+          chmod 0600 "$HOME/.ssh/gateway"
+          printf '%s\n' "$GATEWAY_HOST_KEY" > "$HOME/.ssh/gateway_known_hosts"
+          chmod 0600 "$HOME/.ssh/gateway_known_hosts"
+
+      - name: Ask the deploy gateway to deploy
+        run: |
+          set -euo pipefail
+          ssh -i "$HOME/.ssh/gateway" \
+            -o IdentitiesOnly=yes -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/gateway_known_hosts" \
             -o ConnectTimeout=30 \
-            root@"$DEPLOY_SEAT_HOST" \
-            "fleet-deploy $TARGET_HOST $TARGET_STACKS deploy"
+            deploy-hop@deploy-gateway.tail81cbd2.ts.net \
+            "deploy photos photos-travelling-site"
